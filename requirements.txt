@@ -4,3 +4,4 @@ annoy
 cohere
 toml
 numpy
+pdfplumber
