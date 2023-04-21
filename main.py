@@ -138,10 +138,9 @@ def gen_answer(q, para):
 def gen_better_answer(ques, ans):
     response = co.generate(
         model='command-xlarge-20221108',
-        prompt=f'''Answers:{ans}\n\n
+        prompt=f'''Input statements:{ans}\n\n
                 Question: {ques}\n\n
-                Generate a new answer that uses the best answers 
-                and makes reference to the question.''',
+                Using the input statements, generate one answer to the question. ''',
         max_tokens=100,
         temperature=0.4)
     return response.generations[0].text
