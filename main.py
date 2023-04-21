@@ -6,9 +6,11 @@ import pdfplumber
 from annoy import AnnoyIndex
 from concurrent.futures import ThreadPoolExecutor
 
+# Configure page title
+st.set_page_config(page_title="Document Cofinder")
+
 # Access the API key value
 api_key = st.secrets['API_KEY']
-
 
 # Chunking function
 def chunk_text(df, width=1500, overlap=500):
@@ -46,10 +48,17 @@ co = cohere.Client(api_key)
 st.title("Document Cofinder")
 # add a subtitle
 st.subheader("A semantic search tool built for PDF's")
+# Add warning about rate-limiting
+st.write("---")
+with st.expander("⚠️ **Please note...**"):
+    st.info("This is a proof of concept that uses Cohere's rate-limited trial API key.  \n"\
+            "It allows for a max of one search per minute. _It has not been set up to accomodate multiple users yet._")
+st.write("---")
 
 # Add file uploader
 uploaded_files = st.file_uploader(
     "Add your reference PDF files:", accept_multiple_files=True)
+
 
 def chunk_and_index(uploaded_files=uploaded_files):
     df = pd.DataFrame(columns=['text', 'title', 'page'])
@@ -75,8 +84,8 @@ def chunk_and_index(uploaded_files=uploaded_files):
     with st.spinner("Building index..."):
         # Get the embeddings
         embeds = co.embed(texts=list(df['text_chunk']),
-                        model="large",
-                        truncate="RIGHT").embeddings
+                          model="large",
+                          truncate="RIGHT").embeddings
         embeds = np.array(embeds)
 
         # Create the search index, pass the size of embedding
@@ -85,9 +94,10 @@ def chunk_and_index(uploaded_files=uploaded_files):
         for i in range(len(embeds)):
             search_index.add_item(i, embeds[i])
 
-        search_index.build(10) # 10 trees
+        search_index.build(10)  # 10 trees
 
     return search_index, df
+
 
 st.write("")
 st.write("")
@@ -113,12 +123,13 @@ def search(query, n_results, df, search_index, co):
         query_embed[0],
         n_results,
         include_distances=True)
-    
+
     # filter the dataframe to include the nearest neighbors using the index
     result_df = df[df.index.isin(nearest_neighbors[0])]
     index_similarity_df = pd.DataFrame(
         {'similarity': nearest_neighbors[1]}, index=nearest_neighbors[0])
-    result_df = result_df.join(index_similarity_df)  # Match similarities based on indexes
+    # Match similarities based on indexes
+    result_df = result_df.join(index_similarity_df)
     result_df = result_df.sort_values(by='similarity', ascending=False)
     return result_df
 
@@ -171,7 +182,8 @@ def display(query, results):
     # display the results
     for i, row in results.iterrows():
         # display the 'Category' outlined
-        st.markdown(f'Answer from **page {row["page"]}** of **{row["title"]}**')
+        st.markdown(
+            f'Answer from **page {row["page"]}** of **{row["title"]}**')
         st.write(row['answer'])
         # collapse the text
         with st.expander('Read more'):
