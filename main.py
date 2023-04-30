@@ -84,7 +84,7 @@ def chunk_and_index(uploaded_files=uploaded_files):
     with st.spinner("Building index..."):
         # Get the embeddings
         embeds = co.embed(texts=list(df['text_chunk']),
-                          model="large",
+                          model="embed-multilingual-v2.0",
                           truncate="RIGHT").embeddings
         embeds = np.array(embeds)
 
@@ -103,18 +103,10 @@ st.write("")
 st.write("")
 
 
-# # Load the search index
-# search_index = AnnoyIndex(f=4096, metric='angular')
-# search_index.load('search_index.ann')
-
-# # load the csv file called cohere_final.csv
-# df = pd.read_csv('cohere_text_final.csv')
-
-
 def search(query, n_results, df, search_index, co):
     # Get the query's embedding
     query_embed = co.embed(texts=[query],
-                           model="large",
+                           model="embed-multilingual-v2.0",
                            truncate="LEFT").embeddings
 
     # Get the nearest neighbors and similarity score for the query and the embeddings,
@@ -142,7 +134,7 @@ def gen_answer(q, para):
                 Answer the question using this paragraph.\n\n
                 Question: {q}\nAnswer:''',
         max_tokens=100,
-        temperature=0.4)
+        temperature=0)
     return response.generations[0].text
 
 
@@ -153,7 +145,7 @@ def gen_better_answer(ques, ans):
                 Question: {ques}\n\n
                 Using the input statements, generate one answer to the question. ''',
         max_tokens=100,
-        temperature=0.4)
+        temperature=0.3)
     return response.generations[0].text
 
 
