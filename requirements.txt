@@ -6,3 +6,5 @@ toml
 numpy
 pdfplumber
 translators
+langchain
+huggingface_hub
