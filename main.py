@@ -225,12 +225,8 @@ if st.button('Search') or query:
                                     top_n=RERANK_RETRIEVAL_COUNT, model='rerank-multilingual-v2.0')
             top_index_list = [hit.index for hit in rerank_hits]
             results = results.iloc[top_index_list]
-            # results = results.sort_values(by=sorted(top_index_list, reverse=True))
     else:
         results = results.head(3)
 
     with st.spinner("Generating Output..."):
         display(query, results)
-        # st.dataframe(results)
-        # st.write('---')
-        # st.write(str(rerank_hits))
