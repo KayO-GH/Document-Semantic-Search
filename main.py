@@ -16,8 +16,13 @@ api_key = st.secrets['API_KEY']
 # initialize Cohere client
 co = cohere.Client(api_key)
 
+CHUNK_WIDTH = 1500
+OVERLAP = 500
+INITIAL_RETRIEVAL_COUNT = 10
+RERANK_RETRIEVAL_COUNT = 3
+
 # UTIL FUNCTIONS
-def chunk_text(df, width=1500, overlap=500):
+def chunk_text(df, width=CHUNK_WIDTH, overlap=OVERLAP):
     # create an empty dataframe to store the chunked text
     new_df = pd.DataFrame(
         columns=['text_chunk', 'start_index', 'title', 'page'])
@@ -168,8 +173,21 @@ def display(query, results):
 
 
 def translate_chunk(chunk):
-    translation = ts.translate_text(chunk, to_language='en', translator='google')
+    translation = ""
+    try:
+        translation = ts.translate_text(chunk, to_language='en', translator='google')
+    except Exception as e:
+        print("#TranslationFailed:")
+        print(e)
     return translation
+
+
+def translation_failed(df):
+    translations = set(df['chunk_translation'])
+    # print("############Translations:############\n", translations)
+    if (len(translations) == 1) and (list(translations)[0] == ""):
+        return True
+    return False
 
 
 # Title
@@ -194,8 +212,23 @@ query = st.text_input('Interrogate your documents')
 
 if st.button('Search') or query:
     search_index, df = chunk_and_index(uploaded_files)
+
     with st.spinner("Running Search..."):
-        results = search(query, 3, df, search_index, co)
+        results = search(query, INITIAL_RETRIEVAL_COUNT, df, search_index, co).reindex(range(INITIAL_RETRIEVAL_COUNT))
+
+    with st.spinner("Translating..."):
         results['chunk_translation'] = results.apply(lambda x: translate_chunk(x['text_chunk']), axis=1)
+
+    if not translation_failed(results):
+        with st.spinner("Reranking..."):
+            rerank_hits = co.rerank(query=query, documents=results['chunk_translation'].to_list(), 
+                                    top_n=RERANK_RETRIEVAL_COUNT, model='rerank-multilingual-v2.0')
+            top_index_list = [hit.index for hit in rerank_hits]
+            results = results.iloc[top_index_list]
+            # results = results.sort_values(by=sorted(top_index_list, reverse=True))
+
     with st.spinner("Generating Output..."):
         display(query, results)
+        # st.dataframe(results)
+        # st.write('---')
+        # st.write(str(rerank_hits))
