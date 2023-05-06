@@ -3,6 +3,7 @@ import cohere
 import numpy as np
 import pandas as pd
 import pdfplumber
+import translators as ts
 from annoy import AnnoyIndex
 from concurrent.futures import ThreadPoolExecutor
 
@@ -12,7 +13,10 @@ st.set_page_config(page_title="Document Cofinder")
 # Access the API key value
 api_key = st.secrets['API_KEY']
 
-# Chunking function
+# initialize Cohere client
+co = cohere.Client(api_key)
+
+# UTIL FUNCTIONS
 def chunk_text(df, width=1500, overlap=500):
     # create an empty dataframe to store the chunked text
     new_df = pd.DataFrame(
@@ -41,26 +45,7 @@ def chunk_text(df, width=1500, overlap=500):
 
     return new_df
 
-
-co = cohere.Client(api_key)
-
-# add title
-st.title("Document Cofinder")
-# add a subtitle
-st.subheader("A language-agnostic semantic search tool built for PDF's")
-# Add warning about rate-limiting
-st.write("---")
-with st.expander("⚠️ **Please note...**"):
-    st.info("This is a proof of concept that uses Cohere's rate-limited trial API key.  \n"\
-            "It allows for a max of one search per minute. _It has not been set up to accomodate multiple users yet._")
-st.write("---")
-
-# Add file uploader
-uploaded_files = st.file_uploader(
-    "Add your reference PDF files:", accept_multiple_files=True)
-
-
-def chunk_and_index(uploaded_files=uploaded_files):
+def chunk_and_index(uploaded_files):
     df = pd.DataFrame(columns=['text', 'title', 'page'])
 
     for uploaded_file in uploaded_files:
@@ -98,11 +83,6 @@ def chunk_and_index(uploaded_files=uploaded_files):
 
     return search_index, df
 
-
-st.write("")
-st.write("")
-
-
 def search(query, n_results, df, search_index, co):
     # Get the query's embedding
     query_embed = co.embed(texts=[query],
@@ -125,8 +105,6 @@ def search(query, n_results, df, search_index, co):
     result_df = result_df.sort_values(by='similarity', ascending=False)
     return result_df
 
-
-# define a function to generate an answer
 def gen_answer(q, para):
     response = co.generate(
         model='command-xlarge-20221108',
@@ -137,7 +115,6 @@ def gen_answer(q, para):
         temperature=0)
     return response.generations[0].text
 
-
 def gen_better_answer(ques, ans):
     response = co.generate(
         model='command-xlarge-20221108',
@@ -147,7 +124,6 @@ def gen_better_answer(ques, ans):
         max_tokens=100,
         temperature=0.3)
     return response.generations[0].text
-
 
 def display(query, results):
     # 1. Run co.generate functions to generate answers
@@ -182,13 +158,29 @@ def display(query, results):
             st.write(row['text_chunk'])
         st.write('')
 
-# add the if statements to run the search function when the user clicks the buttons
 
+# Title
+st.title("Document Cofinder")
+# Subtitle
+st.subheader("A language-agnostic semantic search tool built for PDF's")
+# Warning about rate-limiting
+st.write("---")
+with st.expander("⚠️ **Please note...**"):
+    st.info("This is a proof of concept that uses Cohere's rate-limited trial API key.  \n"\
+            "It allows for a max of one search per minute. _It has not been set up to accomodate multiple users yet._")
+st.write("---")
+
+# File uploader
+uploaded_files = st.file_uploader(
+    "Add your reference PDF files:", accept_multiple_files=True)
+
+st.write("")
+st.write("")
 
 query = st.text_input('Interrogate your documents')
 
-if st.button('Search'):
-    search_index, df = chunk_and_index()
+if st.button('Search') or query:
+    search_index, df = chunk_and_index(uploaded_files)
     with st.spinner("Running Search..."):
         results = search(query, 3, df, search_index, co)
     with st.spinner("Generating Output..."):
