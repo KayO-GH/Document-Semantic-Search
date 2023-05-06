@@ -223,7 +223,7 @@ if st.button('Search') or query:
         with st.spinner("Reranking..."):
             rerank_hits = co.rerank(query=query, documents=results['chunk_translation'].to_list(), 
                                     top_n=RERANK_RETRIEVAL_COUNT, model='rerank-multilingual-v2.0')
-            print(rerank_hits)
+            # print(rerank_hits)
             top_index_list = [hit.index for hit in rerank_hits if hit.relevance_score >= 0.95]
             if len(top_index_list) == 0: # total miss, settle for less
                 top_index_list = [hit.index for hit in rerank_hits if hit.relevance_score >= 0.90]
