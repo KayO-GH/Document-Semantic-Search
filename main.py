@@ -47,7 +47,7 @@ co = cohere.Client(api_key)
 # add title
 st.title("Document Cofinder")
 # add a subtitle
-st.subheader("A semantic search tool built for PDF's")
+st.subheader("A language-agnostic semantic search tool built for PDF's")
 # Add warning about rate-limiting
 st.write("---")
 with st.expander("⚠️ **Please note...**"):
@@ -89,7 +89,7 @@ def chunk_and_index(uploaded_files=uploaded_files):
         embeds = np.array(embeds)
 
         # Create the search index, pass the size of embedding
-        search_index = AnnoyIndex(embeds.shape[1], 'angular')
+        search_index = AnnoyIndex(embeds.shape[1], 'dot')
         # Add all the vectors to the search index
         for i in range(len(embeds)):
             search_index.add_item(i, embeds[i])
