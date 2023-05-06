@@ -5,3 +5,4 @@ cohere
 toml
 numpy
 pdfplumber
+translators
