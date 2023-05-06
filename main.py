@@ -45,6 +45,7 @@ def chunk_text(df, width=1500, overlap=500):
 
     return new_df
 
+
 def chunk_and_index(uploaded_files):
     df = pd.DataFrame(columns=['text', 'title', 'page'])
 
@@ -83,6 +84,7 @@ def chunk_and_index(uploaded_files):
 
     return search_index, df
 
+
 def search(query, n_results, df, search_index, co):
     # Get the query's embedding
     query_embed = co.embed(texts=[query],
@@ -105,6 +107,7 @@ def search(query, n_results, df, search_index, co):
     result_df = result_df.sort_values(by='similarity', ascending=False)
     return result_df
 
+
 def gen_answer(q, para):
     response = co.generate(
         model='command-xlarge-20221108',
@@ -114,6 +117,7 @@ def gen_answer(q, para):
         max_tokens=100,
         temperature=0)
     return response.generations[0].text
+
 
 def gen_better_answer(ques, ans):
     response = co.generate(
@@ -125,6 +129,7 @@ def gen_better_answer(ques, ans):
         temperature=0.3)
     return response.generations[0].text
 
+
 def display(query, results):
     # 1. Run co.generate functions to generate answers
 
@@ -132,7 +137,7 @@ def display(query, results):
     with ThreadPoolExecutor(max_workers=1) as executor:
         results['answer'] = list(executor.map(gen_answer,
                                               [query]*len(results),
-                                              results['text_chunk']))
+                                              results['chunk_translation']))
     answers = results['answer'].tolist()
     # run the function to generate a better answer
     answ = gen_better_answer(query, answers)
@@ -155,8 +160,16 @@ def display(query, results):
         st.write(row['answer'])
         # collapse the text
         with st.expander('Read more'):
+            st.write('**Original:**')
             st.write(row['text_chunk'])
+            st.write('**English:**')
+            st.write(row['chunk_translation'])
         st.write('')
+
+
+def translate_chunk(chunk):
+    translation = ts.translate_text(chunk, to_language='en', translator='google')
+    return translation
 
 
 # Title
@@ -183,5 +196,6 @@ if st.button('Search') or query:
     search_index, df = chunk_and_index(uploaded_files)
     with st.spinner("Running Search..."):
         results = search(query, 3, df, search_index, co)
+        results['chunk_translation'] = results.apply(lambda x: translate_chunk(x['text_chunk']), axis=1)
     with st.spinner("Generating Output..."):
         display(query, results)
