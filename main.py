@@ -115,7 +115,7 @@ def search(query, n_results, df, search_index, co):
 
 def gen_answer(q, para):
     response = co.generate(
-        model='command-xlarge-20221108',
+        model='command-xlarge',
         prompt=f'''Paragraph:{para}\n\n
                 Answer the question using this paragraph.\n\n
                 Question: {q}\nAnswer:''',
@@ -126,7 +126,7 @@ def gen_answer(q, para):
 
 def gen_better_answer(ques, ans):
     response = co.generate(
-        model='command-xlarge-20221108',
+        model='command-xlarge',
         prompt=f'''Input statements:{ans}\n\n
                 Question: {ques}\n\n
                 Using the input statements, generate one answer to the question. ''',
@@ -151,12 +151,12 @@ def display(query, results):
     # add a spacer
     st.write('')
     st.write('')
-    st.subheader(query)
-    st.write(answ)
+    st.subheader(f"Question: {query}")
+    st.write(f"**Response:** {answ}")
     # add a spacer
     st.write('')
     st.write('')
-    st.subheader("Relevant documents")
+    st.markdown("#### Relevant documents")
     # display the results
     for i, row in results.iterrows():
         # display the 'Category' outlined
@@ -223,7 +223,12 @@ if st.button('Search') or query:
         with st.spinner("Reranking..."):
             rerank_hits = co.rerank(query=query, documents=results['chunk_translation'].to_list(), 
                                     top_n=RERANK_RETRIEVAL_COUNT, model='rerank-multilingual-v2.0')
-            top_index_list = [hit.index for hit in rerank_hits]
+            print(rerank_hits)
+            top_index_list = [hit.index for hit in rerank_hits if hit.relevance_score >= 0.95]
+            if len(top_index_list) == 0: # total miss, settle for less
+                top_index_list = [hit.index for hit in rerank_hits if hit.relevance_score >= 0.90]
+            if len(top_index_list) == 0: # still a total miss, settle for anything
+                top_index_list = [hit.index for hit in rerank_hits]
             results = results.iloc[top_index_list]
     else:
         results = results.head(3)
