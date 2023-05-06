@@ -196,7 +196,7 @@ st.title("Document Cofinder")
 st.subheader("A language-agnostic semantic search tool built for PDF's")
 # Warning about rate-limiting
 st.write("---")
-with st.expander("⚠️ **Please note...**"):
+with st.expander("⚠️ **Rate-limit note...**"):
     st.info("This is a proof of concept that uses Cohere's rate-limited trial API key.  \n"\
             "It allows for a max of one search per minute. _It has not been set up to accomodate multiple users yet._")
 st.write("---")
