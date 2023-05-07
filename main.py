@@ -8,7 +8,7 @@ from annoy import AnnoyIndex
 from concurrent.futures import ThreadPoolExecutor
 
 # Configure page title
-st.set_page_config(page_title="Document Cofinder")
+st.set_page_config(page_title="Document CoFinder")
 
 # Access the API key value
 api_key = st.secrets['API_KEY']
@@ -195,7 +195,7 @@ with img_col:
    st.image("./header_img.png")
 with header_col:
     # Title
-    st.title("Document Cofinder")
+    st.title("Document CoFinder")
     # Subtitle
     st.subheader("A language-agnostic semantic search tool built for PDF's")
 # Warning about rate-limiting
