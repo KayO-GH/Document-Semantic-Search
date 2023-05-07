@@ -197,7 +197,7 @@ with header_col:
     # Title
     st.title("Document CoFinder")
     # Subtitle
-    st.subheader("A language-agnostic semantic search tool built for PDF's")
+    st.subheader("A cross-lingual semantic search tool built for PDF's")
 # Warning about rate-limiting
 # st.write("---")
 # with st.expander("⚠️ **Rate-limit note...**"):
