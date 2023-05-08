@@ -248,6 +248,3 @@ if st.button('Search') or query:
 
     with st.spinner("Generating Output..."):
         display(query, results)
-
-    # clear dataframes
-
