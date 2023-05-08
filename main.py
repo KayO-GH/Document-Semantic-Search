@@ -204,12 +204,12 @@ with header_col:
     # Subtitle
     st.subheader("A cross-lingual semantic search tool built for PDF's")
 # Warning about rate-limiting
-# st.write("---")
-# with st.expander("⚠️ **Rate-limit note...**"):
-#     st.info("This is a proof of concept which is affected by Cohere's [trial key limits](https://docs.cohere.com/docs/going-live#trial-key-limitations).  \n"\
-#             """The **co.generate** endpoint which we used allows for just 5 calls per minute, of which 4 are used per query. \
-#             _It has not been set up to accomodate multiple users yet._""")
-# st.write("---")
+st.write("---")
+with st.expander("⚠️ **Rate-limit note...**"):
+    st.info("This app uses Cohere's trial key, which is free, but has [usage limits](https://docs.cohere.com/docs/going-live#trial-key-limitations).  \n"\
+            """Effectively, you _**cannot**_ make multiple searches in one minute. If you encounter an error, wait about 30 seconds and try again.  \n\
+            Video walkthrough [here](https://youtu.be/GZTAFR0eeZo)""")
+st.write("---")
 
 # File uploader
 uploaded_files = st.file_uploader(
