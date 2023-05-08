@@ -8,7 +8,7 @@ from annoy import AnnoyIndex
 from concurrent.futures import ThreadPoolExecutor
 
 # Configure page title
-st.set_page_config(page_title="Document Cofinder")
+st.set_page_config(page_title="Document CoFinder")
 
 # Access the API key value
 api_key = st.secrets['API_KEY']
@@ -190,16 +190,21 @@ def translation_failed(df):
     return False
 
 
-# Title
-st.title("Document Cofinder")
-# Subtitle
-st.subheader("A language-agnostic semantic search tool built for PDF's")
+img_col, header_col = st.columns([1,2])
+with img_col:
+   st.image("./header_img.png")
+with header_col:
+    # Title
+    st.title("Document CoFinder")
+    # Subtitle
+    st.subheader("A cross-lingual semantic search tool built for PDF's")
 # Warning about rate-limiting
-st.write("---")
-with st.expander("⚠️ **Rate-limit note...**"):
-    st.info("This is a proof of concept that uses Cohere's rate-limited trial API key.  \n"\
-            "It allows for a max of one search per minute. _It has not been set up to accomodate multiple users yet._")
-st.write("---")
+# st.write("---")
+# with st.expander("⚠️ **Rate-limit note...**"):
+#     st.info("This is a proof of concept which is affected by Cohere's [trial key limits](https://docs.cohere.com/docs/going-live#trial-key-limitations).  \n"\
+#             """The **co.generate** endpoint which we used allows for just 5 calls per minute, of which 4 are used per query. \
+#             _It has not been set up to accomodate multiple users yet._""")
+# st.write("---")
 
 # File uploader
 uploaded_files = st.file_uploader(
