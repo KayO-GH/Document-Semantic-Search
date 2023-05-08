@@ -22,6 +22,7 @@ INITIAL_RETRIEVAL_COUNT = 10
 RERANK_RETRIEVAL_COUNT = 3
 
 # UTIL FUNCTIONS
+@st.cache_data
 def chunk_text(df, width=CHUNK_WIDTH, overlap=OVERLAP):
     # create an empty dataframe to store the chunked text
     new_df = pd.DataFrame(
@@ -51,6 +52,7 @@ def chunk_text(df, width=CHUNK_WIDTH, overlap=OVERLAP):
     return new_df
 
 
+@st.cache_data
 def chunk_and_index(uploaded_files):
     df = pd.DataFrame(columns=['text', 'title', 'page'])
 
@@ -72,22 +74,7 @@ def chunk_and_index(uploaded_files):
     with st.spinner("Chunking text..."):
         df = chunk_text(df)
 
-    with st.spinner("Building index..."):
-        # Get the embeddings
-        embeds = co.embed(texts=list(df['text_chunk']),
-                          model="embed-multilingual-v2.0",
-                          truncate="RIGHT").embeddings
-        embeds = np.array(embeds)
-
-        # Create the search index, pass the size of embedding
-        search_index = AnnoyIndex(embeds.shape[1], 'dot')
-        # Add all the vectors to the search index
-        for i in range(len(embeds)):
-            search_index.add_item(i, embeds[i])
-
-        search_index.build(10)  # 10 trees
-
-    return search_index, df
+    return df
 
 
 def search(query, n_results, df, search_index, co):
@@ -190,6 +177,24 @@ def translation_failed(df):
     return False
 
 
+def get_index(df):
+    # Get the embeddings
+    embeds = co.embed(texts=list(df['text_chunk']),
+                        model="embed-multilingual-v2.0",
+                        truncate="RIGHT").embeddings
+    embeds = np.array(embeds)
+
+    # Create the search index, pass the size of embedding
+    search_index = AnnoyIndex(embeds.shape[1], 'dot')
+    # Add all the vectors to the search index
+    for i in range(len(embeds)):
+        search_index.add_item(i, embeds[i])
+
+    search_index.build(10)  # 10 trees
+
+    return search_index
+
+
 img_col, header_col = st.columns([1,2])
 with img_col:
    st.image("./header_img.png")
@@ -216,8 +221,11 @@ st.write("")
 query = st.text_input('Interrogate your documents')
 
 if st.button('Search') or query:
-    search_index, df = chunk_and_index(uploaded_files)
-
+    df = chunk_and_index(uploaded_files)
+    
+    with st.spinner("Building index..."):
+        search_index = get_index(df)
+    
     with st.spinner("Running Search..."):
         results = search(query, INITIAL_RETRIEVAL_COUNT, df, search_index, co).reindex(range(INITIAL_RETRIEVAL_COUNT))
 
@@ -240,3 +248,6 @@ if st.button('Search') or query:
 
     with st.spinner("Generating Output..."):
         display(query, results)
+
+    # clear dataframes
+
