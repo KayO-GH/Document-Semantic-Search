@@ -170,8 +170,8 @@ def translate_chunk(chunk):
 
 
 def translation_failed(df):
+    # Translation failed if there is only one unique translation and it is an empty string
     translations = set(df['chunk_translation'])
-    # print("############Translations:############\n", translations)
     if (len(translations) == 1) and (list(translations)[0] == ""):
         return True
     return False
@@ -227,23 +227,24 @@ if st.button('Search') or query:
         search_index = get_index(df)
     
     with st.spinner("Running Search..."):
-        results = search(query, INITIAL_RETRIEVAL_COUNT, df, search_index, co).reindex(range(INITIAL_RETRIEVAL_COUNT))
+        results = search(query, INITIAL_RETRIEVAL_COUNT, df, search_index, co).dropna()
+        results.index = range(len(results))
+
+    with st.spinner("Reranking..."):
+        rerank_hits = co.rerank(query=query, documents=results['text_chunk'].to_list(), 
+                                top_n=RERANK_RETRIEVAL_COUNT, model='rerank-multilingual-v2.0')
+        top_index_list = [hit.index for hit in rerank_hits if hit.relevance_score >= 0.95]
+        if len(top_index_list) == 0: # total miss, settle for less
+            top_index_list = [hit.index for hit in rerank_hits if hit.relevance_score >= 0.90]
+        if len(top_index_list) == 0: # still a total miss, settle for anything
+            top_index_list = [hit.index for hit in rerank_hits]
+        results = results.iloc[top_index_list]
 
     with st.spinner("Translating..."):
+        # translate the top rerank hits
         results['chunk_translation'] = results.apply(lambda x: translate_chunk(x['text_chunk']), axis=1)
 
-    if not translation_failed(results):
-        with st.spinner("Reranking..."):
-            rerank_hits = co.rerank(query=query, documents=results['chunk_translation'].to_list(), 
-                                    top_n=RERANK_RETRIEVAL_COUNT, model='rerank-multilingual-v2.0')
-            # print(rerank_hits)
-            top_index_list = [hit.index for hit in rerank_hits if hit.relevance_score >= 0.95]
-            if len(top_index_list) == 0: # total miss, settle for less
-                top_index_list = [hit.index for hit in rerank_hits if hit.relevance_score >= 0.90]
-            if len(top_index_list) == 0: # still a total miss, settle for anything
-                top_index_list = [hit.index for hit in rerank_hits]
-            results = results.iloc[top_index_list]
-    else:
+    if translation_failed(results):
         results = results.head(3)
 
     with st.spinner("Generating Output..."):
