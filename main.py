@@ -4,6 +4,10 @@ import numpy as np
 import pandas as pd
 import pdfplumber
 import translators as ts
+import urllib.parse
+import requests
+from bs4 import BeautifulSoup
+import validators
 from annoy import AnnoyIndex
 from concurrent.futures import ThreadPoolExecutor
 
@@ -20,6 +24,8 @@ CHUNK_WIDTH = 1500
 OVERLAP = 500
 INITIAL_RETRIEVAL_COUNT = 10
 RERANK_RETRIEVAL_COUNT = 3
+
+FAILED_URLS = []
 
 # UTIL FUNCTIONS
 @st.cache_data
@@ -52,23 +58,57 @@ def chunk_text(df, width=CHUNK_WIDTH, overlap=OVERLAP):
     return new_df
 
 
-@st.cache_data
-def chunk_and_index(uploaded_files):
-    df = pd.DataFrame(columns=['text', 'title', 'page'])
+def format_and_check_urls(website_list):
+    websites = [site.strip() for site in website_list.split(",")]
+    validated_urls = []
+    for site in websites:
+        p = urllib.parse.urlparse(site, 'http')
+        if not p.netloc:
+            p = p._replace(netloc=p.path, path="")
+        if validators.url(p.geturl()):
+            validated_urls.append(p.geturl())
+        else:
+            FAILED_URLS.append(p.geturl())
+            info_placeholder.warning(f"Failed to read/validate: {', '.join(FAILED_URLS)}")
+                
+    return validated_urls
 
-    for uploaded_file in uploaded_files:
-        # print file name
-        title = uploaded_file.name
-        with st.spinner(f"Reading {title}..."):
-            # extract text and pass to df
-            with pdfplumber.open(uploaded_file) as pdf:
-                for i, page in enumerate(pdf.pages):
-                    text = page.extract_text()
-                    df = pd.concat([df, pd.DataFrame({
-                        "text": [text],
-                        "title": [title],
-                        "page": [i+1]
-                    })])
+
+@st.cache_data
+def chunk_and_index(uploaded_files, website_list):
+    df = pd.DataFrame(columns=['text', 'title', 'page'])
+    
+    with st.spinner("Reading Files..."):
+        if uploaded_files is not None and len(uploaded_files) > 0:
+            for uploaded_file in uploaded_files:
+                title = uploaded_file.name
+                with st.spinner(f"Reading {title}..."):
+                    with pdfplumber.open(uploaded_file) as pdf:
+                        for i, page in enumerate(pdf.pages):
+                            text = page.extract_text()
+                            df = pd.concat([df, pd.DataFrame({
+                                "text": [text],
+                                "title": [title],
+                                "page": [i+1]
+                            })])
+
+    with st.spinner("Reading websites..."):
+        if website_list is not None and len(website_list) > 0:
+            validated_urls = format_and_check_urls(website_list)
+            for url in validated_urls:
+                try:
+                    r = requests.get(url)
+                except Exception as e:
+                    FAILED_URLS.append(url)
+                    info_placeholder.warning(f"Failed to read/validate: {', '.join(FAILED_URLS)}")
+                    continue
+                soup = BeautifulSoup(r.text, "html.parser")
+                df = pd.concat([df, pd.DataFrame({
+                    "text": [soup.text],
+                    "title": [url],
+                    "page": [1]
+                })])
+
 
     # chunk text in df
     with st.spinner("Chunking text..."):
@@ -103,8 +143,8 @@ def search(query, n_results, df, search_index, co):
 def gen_answer(q, para):
     response = co.generate(
         model='command-xlarge',
-        prompt=f'''Paragraph:{para}\n\n
-                Answer the question using this paragraph.\n\n
+        prompt=f'''Paragraph:```{para}```\n\n
+                Answer the question below using only the paragraph delimited by triple back ticks.\n\n
                 Question: {q}\nAnswer:''',
         max_tokens=100,
         temperature=0)
@@ -116,9 +156,9 @@ def gen_better_answer(ques, ans):
         model='command-xlarge',
         prompt=f'''Input statements:{ans}\n\n
                 Question: {ques}\n\n
-                Using the input statements, generate one answer to the question. ''',
+                Using the input statements and giving a weight of 0.5 to the first statement and 0.25 to any other statements, generate one answer to the question. ''',
         max_tokens=100,
-        temperature=0.3)
+        temperature=0)
     return response.generations[0].text
 
 
@@ -154,6 +194,7 @@ def display(query, results):
         with st.expander('Read more'):
             st.write('**Original:**')
             st.write(row['text_chunk'])
+            st.write('---')
             st.write('**English:**')
             st.write(row['chunk_translation'])
         st.write('')
@@ -164,8 +205,7 @@ def translate_chunk(chunk):
     try:
         translation = ts.translate_text(chunk, to_language='en', translator='google')
     except Exception as e:
-        print("#TranslationFailed:")
-        print(e)
+        print("#TranslationException: {e}")
     return translation
 
 
@@ -195,57 +235,64 @@ def get_index(df):
     return search_index
 
 
-img_col, header_col = st.columns([1,2])
+img_col, header_col = st.columns([1,3])
 with img_col:
    st.image("./header_img.png")
 with header_col:
     # Title
     st.title("Document CoFinder")
     # Subtitle
-    st.subheader("A cross-lingual semantic search tool built for PDF's")
+    st.subheader("A cross-lingual semantic search tool")
 # Warning about rate-limiting
-st.write("---")
 with st.expander("⚠️ **Rate-limit note...**"):
     st.info("This app uses Cohere's trial key, which is free, but has [usage limits](https://docs.cohere.com/docs/going-live#trial-key-limitations).  \n"\
             """Effectively, you _**cannot**_ make multiple searches in one minute. If you encounter an error, wait about 30 seconds and try again.  \n\
             Video walkthrough [here](https://youtu.be/GZTAFR0eeZo)""")
-st.write("---")
 
 # File uploader
 uploaded_files = st.file_uploader(
     "Add your reference PDF files:", accept_multiple_files=True)
 
-st.write("")
+# Reference Websites
+website_list = st.text_input('List target sites, separated by commas')
+
+info_placeholder = st.empty()
+st.write("---")
 st.write("")
 
-query = st.text_input('Interrogate your documents')
+query = st.text_input('Interrogate your sources')
 
 if st.button('Search') or query:
-    df = chunk_and_index(uploaded_files)
-    
-    with st.spinner("Building index..."):
-        search_index = get_index(df)
-    
-    with st.spinner("Running Search..."):
-        results = search(query, INITIAL_RETRIEVAL_COUNT, df, search_index, co).dropna()
-        results.index = range(len(results))
+    df = chunk_and_index(uploaded_files, website_list)
+    if len(df) <= 0:
+        if len(uploaded_files) ==  len(website_list.strip()) == 0:
+            st.error("Sorry, please add reference files.")
+        else:
+            st.error("Sorry, please check your input resources. They might be corrupt or inaccessible.")
+    else:
+        with st.spinner("Building index..."):
+            search_index = get_index(df)
+        
+        with st.spinner("Running Search..."):
+            results = search(query, INITIAL_RETRIEVAL_COUNT, df, search_index, co).dropna()
+            results.index = range(len(results))
 
-    with st.spinner("Reranking..."):
-        rerank_hits = co.rerank(query=query, documents=results['text_chunk'].to_list(), 
-                                top_n=RERANK_RETRIEVAL_COUNT, model='rerank-multilingual-v2.0')
-        top_index_list = [hit.index for hit in rerank_hits if hit.relevance_score >= 0.95]
-        if len(top_index_list) == 0: # total miss, settle for less
-            top_index_list = [hit.index for hit in rerank_hits if hit.relevance_score >= 0.90]
-        if len(top_index_list) == 0: # still a total miss, settle for anything
-            top_index_list = [hit.index for hit in rerank_hits]
-        results = results.iloc[top_index_list]
+        with st.spinner("Reranking..."):
+            rerank_hits = co.rerank(query=query, documents=results['text_chunk'].to_list(), 
+                                    top_n=RERANK_RETRIEVAL_COUNT, model='rerank-multilingual-v2.0')
+            top_index_list = [hit.index for hit in rerank_hits if hit.relevance_score >= 0.95]
+            if len(top_index_list) == 0: # total miss, settle for less
+                top_index_list = [hit.index for hit in rerank_hits if hit.relevance_score >= 0.90]
+            if len(top_index_list) == 0: # still a total miss, settle for anything
+                top_index_list = [hit.index for hit in rerank_hits]
+            results = results.iloc[top_index_list]
 
-    with st.spinner("Translating..."):
-        # translate the top rerank hits
-        results['chunk_translation'] = results.apply(lambda x: translate_chunk(x['text_chunk']), axis=1)
+        with st.spinner("Translating..."):
+            # translate the top rerank hits
+            results['chunk_translation'] = results.apply(lambda x: translate_chunk(x['text_chunk']), axis=1)
 
-    if translation_failed(results):
-        results = results.head(3)
+        if translation_failed(results):
+            results = results.head(3)
 
-    with st.spinner("Generating Output..."):
-        display(query, results)
+        with st.spinner("Generating Output..."):
+            display(query, results)
