@@ -156,7 +156,7 @@ def gen_better_answer(ques, ans):
         model='command-xlarge',
         prompt=f'''Input statements:{ans}\n\n
                 Question: {ques}\n\n
-                Using the input statements and giving a weight of 0.5 to the first statement and 0.25 to any other statements, generate one answer to the question. ''',
+                Using the input statements for context and giving more weight to the first statement, generate one answer to the question. ''',
         max_tokens=100,
         temperature=0)
     return response.generations[0].text
