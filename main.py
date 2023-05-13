@@ -12,7 +12,7 @@ from annoy import AnnoyIndex
 from concurrent.futures import ThreadPoolExecutor
 
 # Configure page title
-st.set_page_config(page_title="Document CoFinder")
+st.set_page_config(page_title="Feature - Web - Document CoFinder")
 
 # Access the API key value
 api_key = st.secrets['API_KEY']
