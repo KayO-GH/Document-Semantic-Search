@@ -9,3 +9,4 @@ translators
 langchain
 huggingface_hub
 validators
+beautifulsoup4
