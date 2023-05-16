@@ -75,7 +75,7 @@ def format_and_check_urls(website_list):
 
 
 @st.cache_data
-def chunk_and_index(uploaded_files, website_list):
+def read_and_chunk(uploaded_files, website_list):
     df = pd.DataFrame(columns=['text', 'title', 'page'])
     
     with st.spinner("Reading Files..."):
@@ -243,11 +243,11 @@ with header_col:
     st.title("Document CoFinder")
     # Subtitle
     st.subheader("A cross-lingual semantic search tool")
-# # Warning about rate-limiting
-# with st.expander("⚠️ **Rate-limit note...**"):
-#     st.info("This app uses Cohere's trial key, which is free, but has [usage limits](https://docs.cohere.com/docs/going-live#trial-key-limitations).  \n"\
-#             """Effectively, you _**cannot**_ make multiple searches in one minute. If you encounter an error, wait about 30 seconds and try again.  \n\
-#             Video walkthrough [here](https://youtu.be/GZTAFR0eeZo)""")
+# Warning about rate-limiting
+with st.expander("⚠️ **Rate-limit note...**"):
+    st.info("This app uses Cohere's trial key, which is free, but has [usage limits](https://docs.cohere.com/docs/going-live#trial-key-limitations).  \n"\
+            """Effectively, you _**cannot**_ make multiple searches in one minute. If you encounter an error, wait about 30 seconds and try again.  \n\
+            Video walkthrough [here](https://youtu.be/GZTAFR0eeZo)""")
 
 # File uploader
 uploaded_files = st.file_uploader(
@@ -263,7 +263,7 @@ st.write("")
 query = st.text_input('Interrogate your sources')
 
 if st.button('Search') or query:
-    df = chunk_and_index(uploaded_files, website_list)
+    df = read_and_chunk(uploaded_files, website_list)
     if len(df) <= 0:
         if len(uploaded_files) ==  len(website_list.strip()) == 0:
             st.error("Sorry, please add reference files.")
